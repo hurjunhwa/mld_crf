@@ -24,6 +24,14 @@
 #define LOW_LEVEL_ASS_THRES 1.96
 
 // Initializing variables depending on the resolution of the input image.
+
+double valueAt(std::vector<float>& f, float x) {
+	float ans = 0.f;
+	for (int i = (int)f.size() - 1; i >= 0; --i)
+		ans = ans * x + f[i];
+	return ans;
+}
+
 bool LaneDetection::initialize_variable(std::string& img_name) {
 
 	// Image variable setting
@@ -318,6 +326,11 @@ void LaneDetection::seed_generation(bool verbose) {
 				int idx = seed.index[jj];
 				cv::line(img_test_valid_seed, lm[idx].str_p, lm[idx].end_p, CV_RGB(r, g, b), 2, 8, 0);
 			}
+			//std::cout << " [" << ii << "]" << std::endl;
+			//std::cout << marking_seed[val_seed[ii]].str_p << "  " << marking_seed[val_seed[ii]].cnt_p << "  " << marking_seed[val_seed[ii]].end_p << std::endl;
+			//std::cout << marking_seed[val_seed[ii]].str_dir << "  " << marking_seed[val_seed[ii]].cnt_dir << "  " << marking_seed[val_seed[ii]].end_dir << " " << marking_seed[val_seed[ii]].index.size() << std::endl;
+			//cv::imshow("val marking seeds", img_test_valid_seed);
+			//cv::waitKey(0);
 		}
 		cv::imshow("val marking seeds", img_test_valid_seed);
 	}
@@ -335,6 +348,15 @@ void LaneDetection::seed_generation(bool verbose) {
 			dist_mat.at<float>(jj, ii) = dist_mat.at<float>(ii, jj);
 		}
 	}
+
+	//for (int ii = 0; ii < n_of_valid_seeds; ++ii) {
+	//	for (int jj = 0; jj < n_of_valid_seeds; ++jj) {
+	//		std::cout << dist_mat.at<float>(ii, jj) << " ";
+	//	}
+	//	std::cout << std::endl;
+	//}
+
+
 
 	// STEP 2-1. Low Level Association Process #1 - Head -> Tail
 	for (int ii = 0; ii < n_of_valid_seeds; ++ii) {
@@ -489,14 +511,15 @@ void LaneDetection::seed_specification(MARKING_SEED& marking_seed_curr, int mode
 			marking_seed_curr.str_dir = marking_seed_curr.cnt_dir;
 		}
 		else {
-			poly2(points, 4, coeff2);
+			int n_samples = std::max(5, (int)(0.3f*n_of_lm));
+			poly2(points, n_samples, coeff2);
 			marking_seed_curr.str_dir = (float)(CV_PI / 2 - atan(coeff2[1]));
-			for (int ii = n_of_lm - 1; ii < n_of_lm - 5; ii--) {
+			points.resize(0);
+			for (int ii = n_of_lm - 1; ii >= n_of_lm - n_samples; ii--) {
 				int idx_i = marking_seed_curr.index[ii];
-				points[ii].x = (float)lm[idx_i].cnt_p.x;
-				points[ii].y = (float)lm[idx_i].cnt_p.y;
+				points.push_back(lm[idx_i].cnt_p);
 			}
-			poly2(points, 4, coeff2);
+			poly2(points, n_samples, coeff2);
 			marking_seed_curr.end_dir = (float)(CV_PI / 2 - atan(coeff2[1]));
 		}
 	}
@@ -931,258 +954,70 @@ void LaneDetection::graph_generation(bool verbose) {
 		cv::imshow("CRF", img_test_crf);
 	}
 }
-//void LaneDetection::validating_final_seeds(IplImage *testImg){
-//
-//	// 시내도로주행상황 맞춰본거 ㅠ
-//	/*char lane_num[6];
-//	CvPoint dots;
-//	CvFont font;
-//	cvInitFont(&font, CV_FONT_HERSHEY_SIMPLEX|CV_FONT_ITALIC, 0.3, 0.7, 0, 2);
-//	int lane_n=0;
-//	
-//	float** points = (float**)malloc(sizeof(float)*n_of_markings);
-//	for(int i=0;i<n_of_markings;i++){
-//		points[i] = (float*)malloc(sizeof(float)*2);
-//	}
-//	double* coeff3 = (double*)malloc(sizeof(double)*4);
-//	double* coeff2 = (double*)malloc(sizeof(double)*3);
-//	int temp_i;
-//	int delta_x = (int)(img_size.width/2);
-//	int delta_y = (int)(img_size.height/2);
-//	double length;
-//		
-//	double err4 = 0;
-//	double err3 = 0;
-//	double err2 = 0;
-//	double temp_p;
-//		
-//	
-//	for(int i=0;i<n_of_marking_seeds;i++){
-//		//printf(" [%d] %d %d\n", i, marking_seed[i].flag, marking_seed[i].count);
-//		if( (marking_seed[i].flag==0)&&(marking_seed[i].count>23)){
-//			marking_seed[i].flag = 1;
-//		}
-//		if( marking_seed[i].flag < 1){
-//			continue;
-//		}
-//		length = length_ftn(marking_seed[i].end_p, marking_seed[i].str_p);
-//		if( length < 80 ){
-//			marking_seed[i].flag = 0;
-//			continue;
-//		}
-//		if( marking_seed[i].length < 70 ){
-//			marking_seed[i].flag = 0;
-//			continue;
-//		}
-//		if( marking_seed[i].length/length < 0.382 ){
-//			//0.265 in highway
-//			marking_seed[i].flag = 0;
-//			continue;
-//		}
-//		
-//		printf("  >> [%d] %.3f %.3f / %.3f \n", lane_n, length, marking_seed[i].length, marking_seed[i].length/length);
-//
-//		for(int j=0;j<marking_seed[i].count;j++){
-//			temp_i = marking_seed[i].index[j];
-//			points[j][0] = (float)lm[temp_i].cnt_p.x-delta_x;
-//			points[j][1] = (float)lm[temp_i].cnt_p.y-delta_y;
-//		}	
-//
-//		// 2-order polynomial
-//		err3 = 0;
-//		poly3(points, marking_seed[i].count, coeff2);		
-//		//for(int j=marking_seed[i].end_p.y-delta_y;j<marking_seed[i].str_p.y-delta_y;j++){
-//		//	dots.y = (int)j+delta_y;
-//		//	dots.x = (int)(coeff2[0]+coeff2[1]*j+coeff2[2]*j*j)+delta_x;
-//		//	cvCircle(testImg, dots, 1, CV_RGB(0,0,250), 1, 8, 0);
-//		//}
-//		for(int j=0;j<marking_seed[i].count;j++){
-//			temp_p = coeff2[0]+coeff2[1]*points[j][1]+coeff2[2]*points[j][1]*points[j][1];
-//			err3 = err3 + abs(temp_p - points[j][0]);			
-//		}	
-//		err3 = err3 / marking_seed[i].count;
-//
-//		// 3-order polynomial
-//		err4 = 0;
-//		poly4(points, marking_seed[i].count, coeff3);
-//		//for(int j=marking_seed[i].end_p.y-delta_y;j<marking_seed[i].str_p.y-delta_y;j++){
-//		//	dots.y = (int)j+delta_y;
-//		//	dots.x = (int)(coeff3[0]+coeff3[1]*j+coeff3[2]*j*j+coeff3[3]*j*j*j)+delta_x;
-//		//	cvCircle(testImg, dots, 1, CV_RGB(0,250,250), 1, 8, 0);
-//		//}
-//		for(int j=0;j<marking_seed[i].count;j++){
-//			temp_p = coeff3[0]+coeff3[1]*points[j][1]+coeff3[2]*points[j][1]*points[j][1]+coeff3[3]*points[j][1]*points[j][1]*points[j][1];
-//			err4 = err4 + abs(temp_p - points[j][0]);			
-//		}	
-//		err4 = err4 / marking_seed[i].count;
-//		printf("   >> err [%d] %.3f %3f \n", lane_n, err4, err3);
-//
-//		if( (err3 > 2.8) && (marking_seed[i].length<100) ){
-//			marking_seed[i].flag = 0;
-//			//continue;
-//		}
-//
-//		for(int j=marking_seed[i].end_p.y-delta_y;j<marking_seed[i].str_p.y-delta_y;j++){
-//			dots.y = (int)j+delta_y;
-//			dots.x = (int)(coeff3[0]+coeff3[1]*j+coeff3[2]*j*j+coeff3[3]*j*j*j)+delta_x;
-//			if( marking_seed[i].flag == 0 ){				
-//				cvCircle(testImg, dots, 1, CV_RGB(250,0,0), 1, 8, 0);
-//			}else{
-//				cvCircle(testImg, dots, 1, CV_RGB(0,250,0), 1, 8, 0);
-//			}
-//		}
-//
-//		sprintf_s(lane_num, "%d",lane_n++);
-//		cvPutText(testImg, lane_num, cvPoint(dots.x,dots.y), &font ,CV_RGB(255,255,255));		
-//		cvShowImage("result", testImg);
-//		cvWaitKey(1);		
-//	}
-//
-//	free(coeff3);
-//	free(coeff2);
-//	for(int i=0;i<n_of_markings;i++){
-//		free(points[i]);
-//	}
-//	free(points);*/
-//
-//char lane_num[6];
-//	CvPoint dots;
-//	CvFont font;
-//	cvInitFont(&font, CV_FONT_HERSHEY_SIMPLEX|CV_FONT_ITALIC, 0.3, 0.7, 0, 2);
-//	int lane_n=0;
-//	
-//	float** points = (float**)malloc(sizeof(float)*n_of_markings);
-//	for(int i=0;i<n_of_markings;i++){
-//		points[i] = (float*)malloc(sizeof(float)*2);
-//	}
-//	double* coeff3 = (double*)malloc(sizeof(double)*4);
-//	double* coeff2 = (double*)malloc(sizeof(double)*3);
-//	double* coeff1 = (double*)malloc(sizeof(double)*2);
-//
-//	int temp_i;
-//	int delta_x = (int)(img_size.width/2);
-//	int delta_y = (int)(img_size.height/2);
-//	double length;
-//		
-//	double err4 = 0;
-//	double err3 = 0;
-//	double err2 = 0;
-//	double temp_p;
-//
-//	int r,g,b;
-//	IplImage *final_ass = cvCreateImage(img_size,img_depth,3); 
-//	cvResize(testImg, final_ass,CV_INTER_LINEAR);
-//
-//	for(int i=0;i<n_of_marking_seeds;i++){
-//		//printf(" [%d] %d %d\n", i, marking_seed[i].flag, marking_seed[i].count);
-//		if( (marking_seed[i].flag==0)&&(marking_seed[i].count>23)){
-//			marking_seed[i].flag = 1;
-//		}
-//		if( marking_seed[i].flag < 1){
-//			continue;
-//		}
-//		length = length_ftn(marking_seed[i].end_p, marking_seed[i].str_p);
-//		if( length < 50 ){
-//			continue;
-//		}
-//		if( marking_seed[i].length < 50 ){
-//			continue;
-//		}
-//		if( marking_seed[i].length/length < 0.265 ){
-//			continue;
-//		}
-//		if( (length == marking_seed[i].length) && (length < 62 ) ){
-//			continue;
-//		}
-//		
-//		printf("  >> [%d] %.3f %.3f / %.3f \n", lane_n, length, marking_seed[i].length, marking_seed[i].length/length);
-//
-//		for(int j=0;j<marking_seed[i].count;j++){
-//			temp_i = marking_seed[i].index[j];
-//			points[j][0] = (float)lm[temp_i].cnt_p.x-delta_x;
-//			points[j][1] = (float)lm[temp_i].cnt_p.y-delta_y;
-//		}	
-//
-//		// 3-order polynomial
-//		err4 = 0;
-//		poly4(points, marking_seed[i].count, coeff3);
-//		for(int j=0;j<marking_seed[i].count;j++){
-//			temp_p = coeff3[0]+coeff3[1]*points[j][1]+coeff3[2]*points[j][1]*points[j][1]+coeff3[3]*points[j][1]*points[j][1]*points[j][1];
-//			err4 = err4 + abs(temp_p - points[j][0]);			
-//		}	
-//		err4 = err4 / marking_seed[i].count;
-//
-//		// 2-order polynomial
-//		err3 = 0;
-//		poly3(points, marking_seed[i].count, coeff2);		
-//		for(int j=0;j<marking_seed[i].count;j++){
-//			temp_p = coeff2[0]+coeff2[1]*points[j][1]+coeff2[2]*points[j][1]*points[j][1];
-//			err3 = err3 + abs(temp_p - points[j][0]);			
-//		}	
-//		err3 = err3 / marking_seed[i].count;
-//
-//		// 1-order polynomial
-//		/*err2 = 0;
-//		poly2(points, marking_seed[i].count, coeff1);		
-//		for(int j=marking_seed[i].end_p.y-delta_y;j<marking_seed[i].str_p.y-delta_y;j++){
-//			dots.y = (int)j+delta_y;
-//			dots.x = (int)(coeff1[0]+coeff1[1]*j)+delta_x;
-//			cvCircle(testImg, dots, 1, CV_RGB(0,0,250), 1, 8, 0);
-//		}
-//		for(int j=0;j<marking_seed[i].count;j++){
-//			temp_p = coeff1[0]+coeff1[1]*points[j][1];
-//			err2 = err2 + abs(temp_p - points[j][0]);		
-//		}	
-//		err2 = err2 / marking_seed[i].count;*/
-//		printf("       %.3f %.3f \n", err4, err3);
-//		if( (marking_seed[i].length < 70) && (err4>2.0) ){
-//			marking_seed[i].flag = 0;	
-//			//continue;
-//		}
-//		if( (marking_seed[i].length < 110) && (err4>2.6) ){
-//			marking_seed[i].flag = 0;	
-//			//continue;
-//		}
-//
-//		for(int j=marking_seed[i].end_p.y-delta_y;j<marking_seed[i].str_p.y-delta_y;j++){
-//			dots.y = (int)j+delta_y;
-//			dots.x = (int)(coeff3[0]+coeff3[1]*j+coeff3[2]*j*j+coeff3[3]*j*j*j)+delta_x;
-//			if( marking_seed[i].flag == 0 ){				
-//				cvCircle(testImg, dots, 1, CV_RGB(250,0,0), 2, 8, 0);
-//			}else{
-//				cvCircle(testImg, dots, 1, CV_RGB(0,250,0), 2, 8, 0);
-//			}
-//		}	
-//
-//		sprintf_s(lane_num, "%d",lane_n++);
-//		//cvPutText(testImg, lane_num, cvPoint(dots.x,dots.y), &font ,CV_RGB(255,255,255));		
-//		//cvShowImage("result", testImg);
-//		//cvSaveImage("result.jpg", testImg);
-//
-//		// Color Printing
-//		r = rand()%230;
-//		g = rand()%230;
-//		b = rand()%230;
-//		for(int j=0;j<marking_seed[i].count;j++){
-//			temp_i = marking_seed[i].index[j];
-//			cvLine(final_ass, lm[temp_i].str_p, lm[temp_i].end_p, CV_RGB(r+20, g+20, b+20),2,8,0); 
-//		}
-//		//cvShowImage("final_ass", final_ass);
-//		//cvSaveImage("final_ass.jpg", final_ass);
-//
-//	}
-//
-//	free(coeff3);
-//	free(coeff2);
-//	for(int i=0;i<n_of_markings;i++){
-//		free(points[i]);
-//	}
-//	free(points);
-//
-//	cvReleaseImage(&final_ass);
-//
-//
-//}
+
+void LaneDetection::validating_final_seeds(bool verbose) {
+
+	cv::Mat img_test_val = cv::Mat(img_size, CV_8UC3);
+	
+	for (int ii = 0; ii < marking_seed.size(); ii++) {
+		if ((marking_seed[ii].flag == 0) && (marking_seed[ii].index.size()>23)) {
+			marking_seed[ii].flag = 1;
+		}
+		if (marking_seed[ii].flag < 1) {
+			continue;
+		}
+		float length = length_ftn(marking_seed[ii].end_p, marking_seed[ii].str_p);
+		if (length < 50) {
+			marking_seed[ii].flag = 0;
+			continue;
+		}
+		if (marking_seed[ii].length < 50) {
+			marking_seed[ii].flag = 0;
+			continue;
+		}
+		if (marking_seed[ii].length / length < 0.382) {
+			marking_seed[ii].flag = 0;
+			continue;
+		}
+		if ((length == marking_seed[ii].length) && (length < 62)) {
+			marking_seed[ii].flag = 0;
+			continue;
+		}
+
+		// supermarking displaying
+		int r = rand() % 230 + 20;
+		int g = rand() % 230 + 20;
+		int b = rand() % 230 + 20;
+
+		for (int jj = 0; jj < marking_seed[ii].index.size(); ++jj) {
+			int temp_i = marking_seed[ii].index[jj];
+			cv::line(img_test_val, lm[temp_i].str_p, lm[temp_i].end_p, cv::Scalar(b, g, r), 2, 8, 0);
+		}
+
+
+		// polynomial fitting
+		std::vector<cv::Point2f> pts;
+		std::vector<float> coeff(3);
+		cv::Point2f dot_p;
+		for (int pp = 0; pp < marking_seed[ii].index.size(); pp++) {
+			int idx_lm = marking_seed[ii].index[pp];
+			pts.push_back(lm[idx_lm].cnt_p);
+		}
+		poly3(pts, pts.size(), coeff);
+		
+		for (int yy = marking_seed[ii].str_p.y; yy < marking_seed[ii].end_p.y; ++yy) {
+			dot_p.y = yy;
+			dot_p.x = valueAt(coeff, dot_p.y);
+			cv::circle(img_test_val, dot_p, 1, cv::Scalar(0, 255, 0), 1, 8, 0);
+		}
+
+		cv::imshow("final", img_test_val);
+	}
+	
+
+	
+
+}
 
 float LaneDetection::marking_thres(float input) {
 
@@ -1238,8 +1073,7 @@ int LaneDetection::dist_ftn1(int s_i, int s_j, double slope) {
 float LaneDetection::dist_ftn2(int i, int j) {
 
 	// For Low level Association
-
-	if (marking_seed[i].end_p.y < marking_seed[j].str_p.y) {
+	if (marking_seed[i].end_p.y > marking_seed[j].str_p.y) {
 		return 0;
 	}
 
@@ -1287,12 +1121,13 @@ float LaneDetection::dist_ftn2(int i, int j) {
 	return (float)(exp(-(diff1)*(diff1) / sig*sig) + exp(-(diff2)*(diff2) / sig*sig));
 }
 
+
 int LaneDetection::dist_ftn3(int i, int j, int s_i, int s_j) {
 
 	// Graph Validity of (i to j)
 
 	// Location 1
-	if (marking_seed[i].end_p.y <= marking_seed[j].str_p.y) {
+	if (marking_seed[i].end_p.y >= marking_seed[j].str_p.y) {
 		return 0;
 	}
 
@@ -1374,41 +1209,16 @@ float LaneDetection::pairwise_ftn(std::vector<cv::Point2f>& pts) {
 	std::vector<float> coeff(4);
 	float error = 0;
 	poly4(pts,pts.size(),coeff);
-	//printf(" >> %.3f, %.3f, %.3f %.3f\n", coeff[3], coeff[2],coeff[1],coeff[0]);
 	for(int ii=0;ii<pts.size();++ii){
 		dots.y = (int)pts[ii].y;
 		dots.x = (int)(coeff[0]+coeff[1]*dots.y+coeff[2]*dots.y*dots.y+coeff[3]*dots.y*dots.y*dots.y);
 		error = error + (float)((pts[ii].x-dots.x)*(pts[ii].x-dots.x));
-		//dots.x = (int)pts[i][0];
-		//cvCircle(testImg, dots, 1, CV_RGB(250,250,0), 3, 8, 0);
 	}
 	
-	//cvShowImage("test", testImg);
 	double sig = 50;
 	double pairwise = exp(-(error/ pts.size())*(error/ pts.size())/sig/sig);
 	
 	return (float)pairwise;
-
-
-	//cv::Point2f dots;
-	//std::vector<float> coeff(3);
-	//float error = 0;
-	//poly3(pts, pts.size(), coeff);
-	////printf(" >> %.3f, %.3f, %.3f %.3f\n", coeff[3], coeff[2], coeff[1], coeff[0]);
-	//for (int ii = 0; ii < pts.size(); ii++) {
-	//	dots.y = (int)pts[ii].y;
-	//	dots.x = (int)(coeff[0] + coeff[1] * dots.y + coeff[2] * dots.y*dots.y);
-	//	error = error + (float)((pts[ii].x - dots.x)*(pts[ii].x - dots.x));
-	//}
-	//float pairwise;
-	////if( error/n < 49.6 ){
-	//if (error / pts.size() < 64) {
-	//	pairwise = 1.f;
-	//}
-	//else {
-	//	pairwise = 0.f;
-	//}
-	//return pairwise;
 
 }
 void LaneDetection::node_grouping(cv::Mat& mat_in, int size, int type, int n, int label) {
@@ -1667,92 +1477,3 @@ float LaneDetection::poly4(std::vector<cv::Point2f> points, int n, std::vector<f
 
 	return err;
 }
-//
-////void LaneDetection::display_test1(IplImage* dispImg){
-////
-////	//char file_name[30];	
-////	char seed_num[5];
-////	CvFont font;
-////	int n=0;
-////	int temp_i;
-////	cvInitFont(&font, CV_FONT_HERSHEY_SIMPLEX|CV_FONT_ITALIC, 0.3, 0.7, 0, 2);
-////	//printf("%d \n", n_of_marking_seeds);
-////	/*IplImage *tempImg = cvCreateImage(img_size,img_depth,3); 
-////	cvZero(tempImg);*/
-////	for(int i=0;i<n_of_marking_seeds;i++){
-////		if(marking_seed[i].count < /*20){//*/SEED_MARKING_NUMBER_THRES){
-////			continue;
-////		}
-////		for(int j=0;j<marking_seed[i].count;j++){
-////			temp_i = marking_seed[i].index[j];
-////			cvLine(dispImg, lm[temp_i].str_p, lm[temp_i].end_p, CV_RGB(0, 255, 0),2,8,0); 
-////		}
-////		sprintf_s(seed_num, "%d",i);
-////		//n++;
-////		cvPutText(dispImg, seed_num, lm[marking_seed[i].index[0]].str_p, &font ,CV_RGB(255,255,255));
-////		//printf("%d\n", marking_seed[i].count);
-////		cvShowImage("After EM Algorithm", dispImg);
-////		//cvWaitKey(0);
-////	}
-////	//cvWaitKey(0);
-////	//sprintf_s(file_name, "result.jpg");
-////	//cvSaveImage(file_name, dispImg);
-////}
-//
-////void LaneDetection::display_test2(IplImage* dispImg){
-////
-////	float** points = (float**)malloc(sizeof(float)*n_of_markings);
-////	for(int i=0;i<n_of_markings;i++){
-////		points[i] = (float*)malloc(sizeof(float)*2);
-////	}
-////	double* coeff = (double*)malloc(sizeof(double)*3);
-////	int n;
-////	int idx;
-////	
-////	char lane_num[6];
-////	CvPoint dots;
-////	CvFont font;
-////	cvInitFont(&font, CV_FONT_HERSHEY_SIMPLEX|CV_FONT_ITALIC, 0.3, 0.7, 0, 2);
-////	int lane_n=0;
-////		
-////
-////	//printf(">> After EM algorithm\n");
-////	for(int i=0;i<n_of_mss;i++){
-////		if(mss[i].flag == 0){
-////			continue;
-////		}
-////		n = marking_seed[mss[i].index].count;
-////		for(int j=0;j<n;j++){
-////			idx = marking_seed[mss[i].index].index[j];
-////			points[j][0] = (float)lm[idx].cnt_p.x;
-////			points[j][1] = (float)lm[idx].cnt_p.y;
-////		}
-////		poly3(points, n, coeff);
-////		// display
-////		for(int j=marking_seed[mss[i].index].end_p.y;j<marking_seed[mss[i].index].str_p.y;j++){
-////			dots.y = (int)j;
-////			dots.x = (int)(coeff[0]+coeff[1]*j+coeff[2]*j*j);
-////			if(mss[i].flag == 0){
-////				cvCircle(dispImg, dots, 1, CV_RGB(250,250,0), 2, 8, 0);
-////				continue;
-////			}
-////			cvCircle(dispImg, dots, 1, CV_RGB(0,250,0), 3, 8, 0);
-////		}
-////		//printf("\t%f\n", dist_ftn4(coeff,marking_seed[mss[i].index].str_p,marking_seed[mss[i].index].end_p));
-////		//sprintf_s(lane_num, "%d",++lane_n);
-////		sprintf_s(lane_num, "%d",mss[i].index);
-////		cvPutText(dispImg, lane_num, cvPoint(dots.x,dots.y), &font ,CV_RGB(255,255,255));
-////		
-////	//	cvShowImage("result", dispImg);
-////		//cvWaitKey(0);		
-////	}
-////
-////	free(coeff);
-////	for(int i=0;i<n_of_markings;i++){
-////		free(points[i]);
-////	}
-////	free(points);	
-////}
-//
-//void LaneDetection::memory_release(){
-//}

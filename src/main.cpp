@@ -7,9 +7,9 @@
 void main(){
 	
 	// input parameter
-	bool verbose_lm_detction = true;
-	bool verbose_seed_gen = true;
-	bool verbose_run_crf = true;
+	bool verbose_lm_detction = false;
+	bool verbose_seed_gen = false;
+	bool verbose_run_crf = false;
 	bool verbose_validating = true;
 	bool verbose = verbose_lm_detction | verbose_seed_gen | verbose_run_crf | verbose_validating;
 
@@ -43,12 +43,9 @@ void main(){
 		// CRF graph configuration & optimization using hungarian method
 		ld.graph_generation(verbose_run_crf);
 		
-
-		// Not using anymore
-		//ld.validating_final_seeds(verbose_validating);
-		//ld->display_test1(dispImg2);
-		//ld->display_test2(dispImg);
-		//ld->memory_release();
+		// validating
+		ld.validating_final_seeds(verbose_validating);
+	
 
 		if (verbose) {
 			cv::waitKey(0);
