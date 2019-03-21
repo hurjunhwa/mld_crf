@@ -1,5 +1,5 @@
 #pragma warning(disable: 4819)
-#include <opencv2\opencv.hpp>
+#include <opencv2/opencv.hpp>
 #include <stdlib.h>
 #include <time.h>
 #include <math.h>
