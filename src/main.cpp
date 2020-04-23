@@ -1,10 +1,10 @@
 #include <iostream>
 #include <string>
-#include <opencv2\opencv.hpp>
+#include <opencv2/opencv.hpp>
 
 #include "LaneDetection.h"
 
-void main(){
+int main(void){
 	
 	// input parameter
 	bool verbose_lm_detction = false;
@@ -14,14 +14,14 @@ void main(){
 	bool verbose = verbose_lm_detction | verbose_seed_gen | verbose_run_crf | verbose_validating;
 
 	//<-------------- Common Variables definition & initialization --------------> 
-	std::string img_path = "..\\data\\20120322142840\\";
+	std::string img_path = "../data/20120322142840/";
 
 	LaneDetection ld = LaneDetection();
 	std::string img_name = (std::string(img_path)).append(std::to_string(1)).append(".jpg");
 	
 	// initilaize
 	if (!ld.initialize_variable(img_name)) {
-		return;
+		return 1;
 	}
 	
 	// process
@@ -54,4 +54,5 @@ void main(){
 
 	ld.~LaneDetection();
 	
+	return 0;
 }
